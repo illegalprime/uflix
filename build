@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd $(dirname "${BASH_SOURCE[0]}")
+source constants
 
 if [[ $# != 1 ]]; then
     echo "Usage: $0 <root-pass>"
@@ -10,5 +11,6 @@ fi
 PASSWORD="$1"
 
 docker build -t uflix/main \
+    --build-arg plex_home=$PLEX_HOME \
     --build-arg password=$PASSWORD \
     .

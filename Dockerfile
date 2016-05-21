@@ -3,6 +3,8 @@ FROM debian:jessie
 MAINTAINER Michael Eden <themichaeleden@gmail.com>
 
 ARG password=toor
+ARG plex_home
+ENV PLEX_HOME ${plex_home}
 
 # runit depends on /etc/inittab which is not present in debian:jessie
 RUN touch /etc/inittab
@@ -49,13 +51,10 @@ RUN wget "https://github.com/peterbourgon/runsvinit/releases/download/v2.0.0/run
 RUN echo "root:$password" | chpasswd
 
 # list exposed ports
-# sshd
-EXPOSE 22
-# plex
-EXPOSE 32400 32400/udp 32469 32469/udp 5353/udp 1900/udp
+# sshd & plex
+EXPOSE 22 32400 32400/udp 32469 32469/udp 5353/udp 1900/udp
 
 # save all the environment variables
-ENV PLEX_CONFIG /mnt/config
 RUN env > /etc/environment
 
 ENTRYPOINT ["/usr/sbin/init"]

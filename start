@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd $(dirname "${BASH_SOURCE[0]}")
+source constants
+
+if [[ $# != 1 ]]; then
+    echo "Usage: $0 <plex media dir>"
+    exit 1
+fi
 
 # configuration
 SSH_PORT=2200
-CONFIG_DIR="plexdata"
+PLEX_DIR="$1"
 
 docker run \
-    -v $CONFIG_DIR:/mnt/config \
+    -v $PLEX_DIR:$PLEX_HOME \
     -p $SSH_PORT:22 \
     -p 32400:32400 \
     -p 32400:32400/udp \

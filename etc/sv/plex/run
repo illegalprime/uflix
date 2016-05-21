@@ -3,6 +3,13 @@ set -euo pipefail
 
 echo "Starting Plex Media Server..."
 source /etc/environment
-chown plex:plex -R "${PLEX_CONFIG}"
+
+for DIR in 'Movies' 'TV Shows' 'Music' 'Photos' 'Home Videos'; do
+    if [[ ! -d "${PLEX_HOME}/${DIR}" ]]; then
+        mkdir -p "${PLEX_HOME}/${DIR}"
+    fi
+done
+
+chown plex:plex -R "${PLEX_HOME}"
 exec 2>&1
 exec chpst -u plex /usr/sbin/start_pms
