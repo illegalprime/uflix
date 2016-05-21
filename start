@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-docker run froflix/ssh
+# configuration
+SSH_PORT=2200
+
+docker run \
+    -p $SSH_PORT:22 \
+    froflix/ssh
+

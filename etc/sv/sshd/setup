@@ -2,3 +2,4 @@
 set -euo pipefail
 
 mkdir /var/run/sshd
+sed -i 's/^PermitRootLogin\s.*$/PermitRootLogin yes/' /etc/ssh/sshd_config
