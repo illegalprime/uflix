@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ ! -S /var/run/dbus/system_bus_socket ]]; then
+    echo "DBus has not started, not starting Avahi yet."
+    exit 1
+fi
+
+echo "Starting Avahi Daemon..."
+exec avahi-daemon --no-chroot

@@ -15,6 +15,7 @@ RUN apt-get update && \
         wget \
         openssh-server \
         dbus \
+        avahi-daemon \
         runit
 
 # Install Plex

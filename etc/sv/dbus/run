@@ -13,7 +13,5 @@ if [[ -x /usr/bin/dbus-uuidgen ]]; then
 	dbus-uuidgen --ensure
 fi
 
-sed -i 's/^[[:space:]]*<fork\/>/<!--<fork\/>-->/;s/^[[:space:]]*\(<pidfile>.*<\/pidfile>\)/<!--\1-->/' /etc/dbus-1/system.conf
-
 echo "Starting DBus Daemon..."
-exec dbus-daemon --system
+exec dbus-daemon --system --nofork --nopidfile

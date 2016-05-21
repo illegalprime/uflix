@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "Starting Plex Media Server..."
 source /etc/environment
 
 for DIR in 'Movies' 'TV Shows' 'Music' 'Photos' 'Home Videos'; do
@@ -11,5 +10,12 @@ for DIR in 'Movies' 'TV Shows' 'Music' 'Photos' 'Home Videos'; do
 done
 
 chown plex:plex -R "${PLEX_HOME}"
+
+if [[ ! $(ps -A | grep avahi-daemon) ]]; then
+    echo 'Avahi has not started, not starting Plex yet.'
+    exit 1
+fi
+
+echo "Starting Plex Media Server..."
 exec 2>&1
 exec chpst -u plex /usr/sbin/start_pms
