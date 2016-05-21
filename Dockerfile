@@ -2,6 +2,8 @@
 FROM debian:jessie
 MAINTAINER Michael Eden <themichaeleden@gmail.com>
 
+ARG password=toor
+
 # runit depends on /etc/inittab which is not present in debian:jessie
 RUN touch /etc/inittab
 RUN apt-get update && \
@@ -35,8 +37,7 @@ RUN wget 'https://github.com/peterbourgon/runsvinit/releases/download/v2.0.0/run
     chmod 755 '/usr/sbin/init' && \
     rm -rf '/tmp/runsvinit'
 
-# TODO: configurable
-RUN echo "root:toor" | chpasswd
+RUN echo "root:$password" | chpasswd
 
 ENTRYPOINT ["/usr/sbin/init"]
 

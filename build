@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd $(dirname "${BASH_SOURCE[0]}")
+
+if [[ $# != 1 ]]; then
+    echo "Usage: $0 <root-pass>"
+    exit 1
+fi
+
+PASSWORD="$1"
+
+docker build -t uflix/main \
+    --build-arg password=$PASSWORD \
+    .

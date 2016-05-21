@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
+cd $(dirname "${BASH_SOURCE[0]}")
 
 # configuration
 SSH_PORT=2200
 
 docker run \
     -p $SSH_PORT:22 \
-    froflix/ssh
+    uflix/main
 
