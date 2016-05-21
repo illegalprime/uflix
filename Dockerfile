@@ -12,9 +12,10 @@ RUN touch /etc/inittab
 # install software
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
-        runit \
         wget \
-        openssh-server
+        openssh-server \
+        dbus \
+        runit
 
 # Install Plex
 RUN wget "https://plex.tv/downloads/latest/1?channel=8&build=linux-ubuntu-x86_64&distro=ubuntu" \
