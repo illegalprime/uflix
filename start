@@ -4,8 +4,16 @@ cd $(dirname "${BASH_SOURCE[0]}")
 
 # configuration
 SSH_PORT=2200
+CONFIG_DIR="plexdata"
 
 docker run \
+    -v $CONFIG_DIR:/mnt/config \
     -p $SSH_PORT:22 \
+    -p 32400:32400 \
+    -p 32400:32400/udp \
+    -p 32469:32469 \
+    -p 32469:32469/udp \
+    -p 5353:5353/udp \
+    -p 1900:1900/udp \
     uflix/main
 

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+echo "Starting Plex Media Server..."
+source /etc/environment
+chown plex:plex -R "${PLEX_CONFIG}"
+exec 2>&1
+exec chpst -u plex /usr/sbin/start_pms
