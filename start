@@ -10,9 +10,11 @@ fi
 
 # configuration
 SSH_PORT=2200
+HOSTNAME="plex-uflix"
 PLEX_DIR="$1"
 
 docker run \
+    -h $HOSTNAME \
     -v $PLEX_DIR:$PLEX_HOME \
     -p $SSH_PORT:22 \
     -p 32400:32400 \

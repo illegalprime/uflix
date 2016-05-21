@@ -2,7 +2,7 @@
 FROM debian:jessie
 MAINTAINER Michael Eden <themichaeleden@gmail.com>
 
-ARG password=toor
+ARG password
 ARG plex_home
 ENV PLEX_HOME ${plex_home}
 
