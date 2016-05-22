@@ -3,6 +3,11 @@ set -euo pipefail
 cd $(dirname "${BASH_SOURCE[0]}")
 source constants
 
+if [[ $(id -u) != 0 ]]; then
+    echo "Please run this script as a root user"
+    exit 2
+fi
+
 if [[ $# != 1 ]]; then
     echo "Usage: $0 <root-pass>"
     exit 1

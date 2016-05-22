@@ -8,6 +8,11 @@ SSH_PORT=2200
 HOSTNAME="plex-uflix"
 
 
+if [[ $(id -u) != 0 ]]; then
+    echo "Please run this script as a root user"
+    exit 2
+fi
+
 if [[ $# != 1 ]]; then
     echo "Usage: $0 <luks encrypted drive>"
     exit 1
@@ -19,11 +24,11 @@ PLEX_DEVICE="$1"
 PLEX_MAPPED="uflix-data-$$"
 PLEX_MOUNT="/mnt/$PLEX_MAPPED"
 # make sure dm-crypt & dm-mod module is loaded
-sudo modprobe dm-crypt
-sudo modprobe dm-mod
-sudo cryptsetup open --type luks $PLEX_DEVICE $PLEX_MAPPED
-sudo mkdir -p $PLEX_MOUNT
-sudo mount "/dev/mapper/$PLEX_MAPPED" $PLEX_MOUNT
+modprobe dm-crypt
+modprobe dm-mod
+cryptsetup open --type luks $PLEX_DEVICE $PLEX_MAPPED
+mkdir -p $PLEX_MOUNT
+mount "/dev/mapper/$PLEX_MAPPED" $PLEX_MOUNT
 
 docker run \
     -h $HOSTNAME \
@@ -38,7 +43,7 @@ docker run \
     uflix/main
 
 # remove the encrypted drive
-sudo umount $PLEX_MOUNT
-sudo rmdir $PLEX_MOUNT
-sudo cryptsetup remove $PLEX_MAPPED
+umount $PLEX_MOUNT
+rmdir $PLEX_MOUNT
+cryptsetup remove $PLEX_MAPPED
 
