@@ -3,20 +3,32 @@ set -euo pipefail
 cd $(dirname "${BASH_SOURCE[0]}")
 source constants
 
-if [[ $# != 1 ]]; then
-    echo "Usage: $0 <plex media dir>"
-    exit 1
-fi
-
 # configuration
 SSH_PORT=2200
 HOSTNAME="plex-uflix"
-PLEX_DIR="$1"
+
+
+if [[ $# != 1 ]]; then
+    echo "Usage: $0 <luks encrypted drive>"
+    exit 1
+fi
+
+PLEX_DEVICE="$1"
+
+# Open the encrypted drive
+PLEX_MAPPED="uflix-data-$$"
+PLEX_MOUNT="/mnt/$PLEX_MAPPED"
+# make sure dm-crypt & dm-mod module is loaded
+sudo modprobe dm-crypt
+sudo modprobe dm-mod
+sudo cryptsetup open --type luks $PLEX_DEVICE $PLEX_MAPPED
+sudo mkdir -p $PLEX_MOUNT
+sudo mount "/dev/mapper/$PLEX_MAPPED" $PLEX_MOUNT
 
 docker run \
     -h $HOSTNAME \
-    -v $PLEX_DIR:$PLEX_HOME \
     -p $SSH_PORT:22 \
+    -v $PLEX_MOUNT:$PLEX_HOME \
     -p 32400:32400 \
     -p 32400:32400/udp \
     -p 32469:32469 \
@@ -24,4 +36,9 @@ docker run \
     -p 5353:5353/udp \
     -p 1900:1900/udp \
     uflix/main
+
+# remove the encrypted drive
+sudo umount $PLEX_MOUNT
+sudo rmdir $PLEX_MOUNT
+sudo cryptsetup remove $PLEX_MAPPED
 
