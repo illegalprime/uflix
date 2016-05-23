@@ -1,4 +1,4 @@
-# uflix
+# µflix
 a specialized docker container to run plex media service with ssh and luks encryption 
 
 # Setup
