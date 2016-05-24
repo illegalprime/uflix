@@ -31,6 +31,7 @@ mkdir -p $PLEX_MOUNT
 mount "/dev/mapper/$PLEX_MAPPED" $PLEX_MOUNT
 
 docker run \
+    --rm \
     -h $HOSTNAME \
     -p $SSH_PORT:22 \
     -v $PLEX_MOUNT:$PLEX_HOME \
