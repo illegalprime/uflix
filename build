@@ -4,16 +4,20 @@ cd $(dirname "${BASH_SOURCE[0]}")
 source constants
 
 if [[ $(id -u) != 0 ]]; then
-    echo "Please run this script as a root user"
+    >&2 echo "Please run this script as a root user"
     exit 2
 fi
 
-if [[ $# != 1 ]]; then
-    echo "Usage: $0 <root-pass>"
-    exit 1
-fi
+# get a password for the image for root ssh access
+echo -n "Password (for SSH access): "; read -s PASSWORD
+echo
+echo -n "One more time: "; read -s verify_pass
+echo
 
-PASSWORD="$1"
+if [[ $PASSWORD != $verify_pass ]]; then
+    >&2 echo "Passwords do not match."
+    exit 3
+fi
 
 docker build -t uflix/main \
     --build-arg plex_home=$PLEX_HOME \

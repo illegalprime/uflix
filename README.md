@@ -44,6 +44,6 @@ sudo systemctl start docker
 ```BASH
 git clone https://github.com/illegalprime/uflix.git
 cd uflix
-sudo ./build <containers-root-password>
+sudo ./build
 sudo ./start <path-to-luks-device>
 ```
