@@ -9,43 +9,189 @@ if [[ $(id -u) != 0 ]]; then
 fi
 
 if [[ $# != 1 ]]; then
-    echo "Usage: $0 <luks encrypted drive>"
+    echo "Usage: $0 <some device>"
+    echo "Where some device can be:"
+    echo "  UUID"
+    echo "  PARTUUID"
+    echo "  Label"
+    echo "  Part Label"
+    echo "  ID"
+    echo "  sdXY"
+    echo "  any device file"
+    echo "  a normal directory"
     exit 1
 fi
 
 SSH_PORT=2200
 HOSTNAME="plex-uflix"
 PLEX_DEVICE="$1"
-PLEX_MAPPED="uflix-data-$$"
-PLEX_MOUNT="/mnt/$PLEX_MAPPED"
-PLEX_BLOCK_MAPPED="/dev/mapper/$PLEX_MAPPED"
+MOUNT_HOME="/var/run/uflix"
+CLEANUP=("rmdir '$MOUNT_HOME'")
 
 cleanup() {
-    if [[ -d $PLEX_MOUNT ]]; then
-        umount $PLEX_MOUNT
-        rmdir $PLEX_MOUNT
-    fi
-    if [[ -b $PLEX_BLOCK_MAPPED ]]; then
-        cryptsetup remove $PLEX_MAPPED
-    fi
+    echo
+    echo "Cleaning up..."
+    for ((i=${#CLEANUP[@]}-1; i >= 0; i--)); do
+        local JOB="${CLEANUP[$i]}"
+        echo "Running $JOB..."
+        eval "$JOB"
+    done
 }
 
-trap cleanup INT TERM EXIT
+trap cleanup TERM EXIT
 
-# make sure dm-crypt & dm-mod module is loaded
-modprobe dm-crypt
-modprobe dm-mod
+mount=redir_mount
+umount=redir_umount
 
-# Open the encrypted drive
-cryptsetup open --type luks $PLEX_DEVICE $PLEX_MAPPED
-mkdir -p $PLEX_MOUNT
-mount $PLEX_BLOCK_MAPPED $PLEX_MOUNT
+redir_mount() {
+    echo "Mounting '$1' onto '$2'..."
+    mount "${@:3}" "$1" "$2"
+}
+
+redir_umount() {
+    echo "Unmounting '$1'..."
+    umount "${@:2}" "$1"
+}
+
+mount_it() {
+    local COMMAND="$1"
+    local OUTPUT="$2"
+    local TARGET="$3"
+    local LABEL=$(basename "$3")
+    local DIRECTORY="$MOUNT_HOME/$LABEL"
+
+    # create a directory for mounting
+    mkdir -p "$DIRECTORY"
+    CLEANUP+=("rmdir '$DIRECTORY'")
+
+    # mount the device
+    mount_$COMMAND "$TARGET" "$DIRECTORY"
+    CLEANUP+=("cleanup_$COMMAND '$TARGET' '$DIRECTORY'")
+
+    # return the mountpoint
+    eval "$OUTPUT='$DIRECTORY'"
+}
+
+mount_directory() {
+    $mount "$1" "$2" --bind
+}
+
+cleanup_directory() {
+    $umount "$2" || true
+}
+
+mount_extfour()  {
+    $mount "$1" "$2"
+}
+
+cleanup_extfour() {
+    $umount "$2" || true
+}
+
+mount_luks() {
+    local LUKS_DEV="$1"
+    local MOUNT_POINT="$2"
+    local MAPPED_DEV="uflix-$(basename $1)"
+    local MAPPED_DEV_PATH="/dev/mapper/$MAPPED_DEV"
+
+    # make sure dm-crypt & dm-mod module is loaded
+    modprobe dm-crypt
+    modprobe dm-mod
+
+    # Open the encrypted drive
+    cryptsetup open --type luks $LUKS_DEV $MAPPED_DEV
+    $mount $MAPPED_DEV_PATH $MOUNT_POINT
+}
+
+cleanup_luks() {
+    local MAPPED_DEV="uflix-$(basename $1)"
+    local MOUNT_POINT="$2"
+    $umount "$MOUNT_POINT" || true
+    cryptsetup remove "$MAPPED_DEV" || true
+}
+
+find_dev() {
+    local TARGET="$1"
+
+    # is it just a path to a device file?
+    if [[ -b $TARGET ]]; then
+        echo "$TARGET"
+        return
+    fi
+
+    # some block device specified by uuid, etc.
+    local DEVICE=
+    local DEVICES=(/dev/disk/*/$TARGET /dev/$TARGET)
+    for DEVICE in "${DEVICES[@]}"; do
+        if [[ -b $DEVICE ]]; then
+            echo $(readlink -f $DEVICE)
+            return
+        fi
+    done
+}
+
+multimount() {
+    local OUTPUT="$1"
+    local TARGET="$2"
+    local LABEL="$3"
+
+    # maybe its a normal directory
+    if [[ -d $TARGET ]]; then
+        mount_it directory "$OUTPUT" "$TARGET"
+        return
+    fi
+
+    # it could be some block device file
+    echo "Trying to find $TARGET..."
+    local DEVICE=$(find_dev "$TARGET")
+    echo "Found $DEVICE !"
+    if [[ $DEVICE ]]; then
+
+        # is this device already mounted?
+        local MOUNTED=($(cat /proc/mounts | grep ^$DEVICE || true))
+        if [[ ${MOUNTED:-} ]]; then
+            mount_it directory "$OUTPUT" "${MOUNTED[1]}"
+            return
+        fi
+
+        # what's the file system?
+        echo "Detecting file system of $DEVICE..."
+        local FSTYPE=$(lsblk -o FSTYPE -n $DEVICE)
+        echo "Detected $FSTYPE on $DEVICE !"
+        case $FSTYPE in
+            "ext4")
+                mount_it extfour "$OUTPUT" "$DEVICE"
+                return
+                ;;
+            "crypto_LUKS")
+                mount_it luks "$OUTPUT" "$DEVICE"
+                return
+                ;;
+            *)
+                echo "This filesystem is not supported."
+                ;;
+        esac
+    fi
+
+    # no other options, exit
+    echo "Could not find any location using $TARGET"
+    exit 64
+}
+
+mkdir -p "$MOUNT_HOME"
+
+multimount PLEX_MOUNT "$PLEX_DEVICE" main
+
+echo "======================"
+echo "| Starting Container |"
+echo "======================"
+echo
 
 docker run \
     --rm \
     -h $HOSTNAME \
     -p $SSH_PORT:22 \
-    -v $PLEX_MOUNT:$PLEX_HOME \
+    -v "$PLEX_MOUNT:$PLEX_HOME" \
     -p 32400:32400 \
     -p 32400:32400/udp \
     -p 32469:32469 \
