@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-source /etc/environment
-
-chown plex:plex -R "${PLEX_HOME}"
-
 if [[ ! $(ps -A | grep avahi-daemon) ]]; then
     echo 'Avahi has not started, not starting Plex yet.'
     exit 1
 fi
+
+source /etc/environment
+source /etc/default/plexmediaserver
+
+chown ${PLEX_MEDIA_SERVER_USER}:${PLEX_MEDIA_SERVER_USER} -R \
+     "${PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR}"
 
 echo "Starting Plex Media Server..."
 exec 2>&1
