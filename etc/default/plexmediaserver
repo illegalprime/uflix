@@ -10,7 +10,7 @@ export PLEX_MEDIA_SERVER_MAX_STACK_SIZE=3000
 export PLEX_MEDIA_SERVER_TMPDIR=/tmp
 
 # uncomment to set it to something else
-export PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR="${PLEX_HOME}/config/Library/Application Support"
+export PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR="${PLEX_HOME}/Library/Application Support"
 
 # the user that PMS should run as, defaults to 'plex'
 # note that if you change this you might need to move
