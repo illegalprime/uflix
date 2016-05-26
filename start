@@ -3,11 +3,6 @@ set -euo pipefail
 cd $(dirname "${BASH_SOURCE[0]}")
 source constants
 
-# configuration
-SSH_PORT=2200
-HOSTNAME="plex-uflix"
-
-
 if [[ $(id -u) != 0 ]]; then
     echo "Please run this script as a root user"
     exit 2
@@ -18,17 +13,33 @@ if [[ $# != 1 ]]; then
     exit 1
 fi
 
+SSH_PORT=2200
+HOSTNAME="plex-uflix"
 PLEX_DEVICE="$1"
-
-# Open the encrypted drive
 PLEX_MAPPED="uflix-data-$$"
 PLEX_MOUNT="/mnt/$PLEX_MAPPED"
+PLEX_BLOCK_MAPPED="/dev/mapper/$PLEX_MAPPED"
+
+cleanup() {
+    if [[ -d $PLEX_MOUNT ]]; then
+        umount $PLEX_MOUNT
+        rmdir $PLEX_MOUNT
+    fi
+    if [[ -b $PLEX_BLOCK_MAPPED ]]; then
+        cryptsetup remove $PLEX_MAPPED
+    fi
+}
+
+trap cleanup INT TERM EXIT
+
 # make sure dm-crypt & dm-mod module is loaded
 modprobe dm-crypt
 modprobe dm-mod
+
+# Open the encrypted drive
 cryptsetup open --type luks $PLEX_DEVICE $PLEX_MAPPED
 mkdir -p $PLEX_MOUNT
-mount "/dev/mapper/$PLEX_MAPPED" $PLEX_MOUNT
+mount $PLEX_BLOCK_MAPPED $PLEX_MOUNT
 
 docker run \
     --rm \
@@ -42,9 +53,3 @@ docker run \
     -p 5353:5353/udp \
     -p 1900:1900/udp \
     uflix/main
-
-# remove the encrypted drive
-umount $PLEX_MOUNT
-rmdir $PLEX_MOUNT
-cryptsetup remove $PLEX_MAPPED
-
