@@ -45,5 +45,5 @@ sudo systemctl start docker
 git clone https://github.com/illegalprime/uflix.git
 cd uflix
 sudo ./build
-sudo ./start <path-to-luks-device>
+sudo ./start <UUID, Label, PartLabel, path to device, any directory, sdXY, PARTUUID, or ID>
 ```
