@@ -44,22 +44,20 @@ RUN rm -rf /etc/service/getty*
 RUN wget "https://github.com/peterbourgon/runsvinit/releases/download/v2.0.0/runsvinit-linux-amd64.tgz" \
     -q -O /tmp/runsvinit.tar.gz && \
     tar -C /tmp -xf /tmp/runsvinit.tar.gz && \
-    cp /tmp/runsvinit /usr/sbin/init && \
-    chmod 755 /usr/sbin/init && \
+    cp /tmp/runsvinit /usr/sbin/runsvinit && \
+    chmod 755 /usr/sbin/runsvinit && \
     rm -rf /tmp/runsvinit
 
 RUN echo "root:$password" | chpasswd
 
 ARG plex_home
-ENV PLEX_HOME ${plex_home}
-RUN mkdir -p "${PLEX_HOME}"
+RUN mkdir -p "${plex_home}"
 
 # list exposed ports
 # sshd & plex
 EXPOSE 22 32400 32400/udp 32469 32469/udp 5353/udp 1900/udp
 
-# save all the environment variables
-RUN env > /etc/environment
-
+COPY init /usr/sbin/init
+RUN chmod 755 /usr/sbin/init
 ENTRYPOINT ["/usr/sbin/init"]
 

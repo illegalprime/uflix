@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# save all the environment variables
+env > /etc/environment
+
+# start the server
+exec /usr/sbin/runsvinit
