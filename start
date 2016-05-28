@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd $(dirname "${BASH_SOURCE[0]}")
+cd "$(dirname "${BASH_SOURCE[0]}")"
 
 IS_INTEGER='^[0-9]+$'
 VALID_MOUNT_COMM='^(uuid|label|name)$'
@@ -337,4 +337,3 @@ docker run \
     -p 5353:5353/udp \
     -p 1900:1900/udp \
     uflix/main
-

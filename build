@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-cd $(dirname "${BASH_SOURCE[0]}")
+cd "$(dirname "${BASH_SOURCE[0]}")"
 
 if [[ $(id -u) != 0 ]]; then
     >&2 echo "Please run this script as a root user"
