@@ -3,37 +3,122 @@ set -euo pipefail
 cd $(dirname "${BASH_SOURCE[0]}")
 source constants
 
-if [[ $(id -u) != 0 ]]; then
-    echo "Please run this script as a root user"
-    exit 2
-fi
+IS_INTEGER='^[0-9]+$'
+VALID_MOUNT_COMM='^(uuid|label|name)$'
 
-if [[ $# != 1 ]]; then
-    echo "Usage: $0 <some device>"
-    echo "Where some device can be:"
-    echo "  UUID"
-    echo "  PARTUUID"
-    echo "  Label"
-    echo "  Part Label"
-    echo "  ID"
-    echo "  sdXY"
-    echo "  any device file"
-    echo "  a normal directory"
-    exit 1
-fi
+show_help() {
+    echo "
+Usage of $(basename "$0"):
+    -H, --hostname      The hostname of the container, also used by avahi
+                            Default: plex-uflix
+    -r, --mount-root    Where the media will be mounted on the host
+                            Default: /var/run/uflix
+    -p, --ssh-port      The SSH port to expose from the container
+                            Default: 2200
+    -d, --data          REQUIRED: Device to use as storage can be any of:
+                            UUID, PARTUUID, sdXY, Label, PartLabel, ID,
+                            any device file, any normal directory,
+    -L, --label         What to call the media when its mounted on the host,
+                            can be: label, uuid, name
+                            Default: name
+    "
+    if [[ ${1:-} ]]; then
+        exit 64
+    else
+        exit 0
+    fi
+}
 
+warn() {
+    echo -e "\e[0;33m[WARNING] ${@}\e[0m" 1>&2
+}
+
+error() {
+    echo -e "\e[0;31m[ERROR] ${@}\e[0m" 1>&2
+}
+
+info() {
+    echo "[INFO] ${@}"
+}
+
+PLEX_DEVICE=
 SSH_PORT=2200
 HOSTNAME="plex-uflix"
-PLEX_DEVICE="$1"
 MOUNT_HOME="/var/run/uflix"
-CLEANUP=("rmdir '$MOUNT_HOME'")
+MOUNT_NAME_COMM="name"
+
+# Argument parsing
+VAR_CHANGE=
+for ARG in "$@"; do
+    case "$ARG" in
+        "-h"|"--help")
+            show_help
+            ;;
+        "-H"|"--hostname")
+            VAR_CHANGE="HOSTNAME"
+            ;;
+        "-r"|"--mount-root")
+            VAR_CHANGE="MOUNT_HOME"
+            ;;
+        "-p"|"--ssh-port")
+            VAR_CHANGE="SSH_PORT"
+            ;;
+        "-L"|"--label")
+            VAR_CHANGE="MOUNT_NAME_COMM"
+            ;;
+        "-d"|"--data")
+            VAR_CHANGE="PLEX_DEVICE"
+            ;;
+        *)
+            if [[ ${VAR_CHANGE:-} ]]; then
+                eval "$VAR_CHANGE='$ARG'"
+                VAR_CHANGE=
+            else
+                error "Could not understand argument '$ARG'."
+                show_help true
+            fi
+    esac
+done
+
+# Arguments testing
+
+if [[ ! ${PLEX_DEVICE:-} ]]; then
+    error "You must specify at least one device for plex to use."
+    echo "Specify this with the -d or --device flag."
+    echo "Use the -h or --help flag for more options."
+    exit 64
+fi
+
+if ! [[ $SSH_PORT =~ $IS_INTEGER && $SSH_PORT -ge 1 && $SSH_PORT -le 65535 ]]
+then
+    error "The SSH port must be a number between 1 and 65535 inclusive"
+    echo "'$SSH_PORT' was given as a port number."
+    exit 64
+fi
+
+if ! [[ $MOUNT_NAME_COMM =~ $VALID_MOUNT_COMM ]]; then
+    error "Label must be one of: label, uuid, basename."
+    echo "'$MOUNT_NAME_COMM' is unrecognized."
+fi
+
+if [[ $(id -u) != 0 ]]; then
+    error "Please run this as a root user"
+    exit 64
+fi
+
+mkdir -p "$MOUNT_HOME"
+if [[ -d $MOUNT_HOME ]]; then
+    CLEANUP=("warn not removing '$MOUNT_HOME'")
+else
+    CLEANUP=("rmdir '$MOUNT_HOME' || true")
+fi
 
 cleanup() {
     echo
-    echo "Cleaning up..."
+    info "Cleaning up..."
     for ((i=${#CLEANUP[@]}-1; i >= 0; i--)); do
         local JOB="${CLEANUP[$i]}"
-        echo "Running $JOB..."
+        info "Running $JOB..."
         eval "$JOB"
     done
 }
@@ -44,29 +129,42 @@ mount=redir_mount
 umount=redir_umount
 
 redir_mount() {
-    echo "Mounting '$1' onto '$2'..."
+    info "Mounting '$1' onto '$2'..."
     mount "${@:3}" "$1" "$2"
 }
 
 redir_umount() {
-    echo "Unmounting '$1'..."
+    info "Unmounting '$1'..."
     umount "${@:2}" "$1"
+}
+
+label() {
+    local DEVICE="$1"
+    if [[ -b $DEVICE ]]; then
+        lsblk -o $MOUNT_NAME_COMM -n "$DEVICE"
+    else
+        basename "$DEVICE"
+    fi
 }
 
 mount_it() {
     local COMMAND="$1"
     local OUTPUT="$2"
-    local TARGET="$3"
-    local LABEL=$(basename "$3")
-    local DIRECTORY="$MOUNT_HOME/$LABEL"
+    local TARGET=$(readlink -f "$3")
+    local LABEL=$(label "$TARGET")
+    local DIRECTORY=$(readlink -f "$MOUNT_HOME/$LABEL")
 
-    # create a directory for mounting
-    mkdir -p "$DIRECTORY"
-    CLEANUP+=("rmdir '$DIRECTORY'")
+    if [[ $DIRECTORY != $TARGET ]]; then
+        # create a directory for mounting
+        mkdir -p "$DIRECTORY"
+        CLEANUP+=("rmdir '$DIRECTORY'")
 
-    # mount the device
-    mount_$COMMAND "$TARGET" "$DIRECTORY"
-    CLEANUP+=("cleanup_$COMMAND '$TARGET' '$DIRECTORY'")
+        # mount the device
+        mount_$COMMAND "$TARGET" "$DIRECTORY"
+        CLEANUP+=("cleanup_$COMMAND '$TARGET' '$DIRECTORY'")
+    else
+        warn "'$TARGET' and '$DIRECTORY' are equal, not mounting."
+    fi
 
     # return the mountpoint
     eval "$OUTPUT='$DIRECTORY'"
@@ -133,7 +231,6 @@ find_dev() {
 multimount() {
     local OUTPUT="$1"
     local TARGET="$2"
-    local LABEL="$3"
 
     # maybe its a normal directory
     if [[ -d $TARGET ]]; then
@@ -142,9 +239,9 @@ multimount() {
     fi
 
     # it could be some block device file
-    echo "Trying to find $TARGET..."
+    info "Trying to find $TARGET..."
     local DEVICE=$(find_dev "$TARGET")
-    echo "Found $DEVICE !"
+    info "Found $DEVICE !"
     if [[ $DEVICE ]]; then
 
         # is this device already mounted?
@@ -155,9 +252,9 @@ multimount() {
         fi
 
         # what's the file system?
-        echo "Detecting file system of $DEVICE..."
+        info "Detecting file system of $DEVICE..."
         local FSTYPE=$(lsblk -o FSTYPE -n $DEVICE)
-        echo "Detected $FSTYPE on $DEVICE !"
+        info "Detected $FSTYPE on $DEVICE !"
         case $FSTYPE in
             "ext4")
                 mount_it extfour "$OUTPUT" "$DEVICE"
@@ -168,30 +265,28 @@ multimount() {
                 return
                 ;;
             *)
-                echo "This filesystem is not supported."
+                error "The $FSTYPE filesystem is not supported."
                 ;;
         esac
     fi
 
     # no other options, exit
-    echo "Could not find any location using $TARGET"
+    error "Could not find any location using $TARGET"
     exit 64
 }
 
-mkdir -p "$MOUNT_HOME"
+multimount PLEX_MOUNT "$PLEX_DEVICE"
 
-multimount PLEX_MOUNT "$PLEX_DEVICE" main
-
-echo "======================"
-echo "| Starting Container |"
-echo "======================"
-echo
+echo -e "\e[0;32m
+======================
+| Starting Container |
+======================\e[0m"
 
 docker run \
     --rm \
-    -h $HOSTNAME \
+    -h "$HOSTNAME" \
     -p $SSH_PORT:22 \
-    -v "$PLEX_MOUNT:$PLEX_HOME" \
+    -v "$PLEX_MOUNT":"$PLEX_HOME" \
     -p 32400:32400 \
     -p 32400:32400/udp \
     -p 32469:32469 \
@@ -199,3 +294,4 @@ docker run \
     -p 5353:5353/udp \
     -p 1900:1900/udp \
     uflix/main
+
