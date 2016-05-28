@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd $(dirname "${BASH_SOURCE[0]}")
-source constants
 
 IS_INTEGER='^[0-9]+$'
 VALID_MOUNT_COMM='^(uuid|label|name)$'

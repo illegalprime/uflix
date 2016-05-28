@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd $(dirname "${BASH_SOURCE[0]}")
-source constants
 
 if [[ $(id -u) != 0 ]]; then
     >&2 echo "Please run this script as a root user"
@@ -20,6 +19,6 @@ if [[ $PASSWORD != $verify_pass ]]; then
 fi
 
 docker build -t uflix/main \
-    --build-arg plex_home=$PLEX_HOME \
-    --build-arg password=$PASSWORD \
+    --build-arg "password=$PASSWORD" \
+    --build-arg "plex_home=/plex" \
     .
