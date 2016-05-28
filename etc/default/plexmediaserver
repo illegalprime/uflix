@@ -1,4 +1,5 @@
-# default script for Plex Media Server
+#!/usr/bin/env bash
+. /etc/environment
 
 # the number of plugins that can run at the same time
 export PLEX_MEDIA_SERVER_MAX_PLUGIN_PROCS=6
@@ -10,7 +11,7 @@ export PLEX_MEDIA_SERVER_MAX_STACK_SIZE=3000
 export PLEX_MEDIA_SERVER_TMPDIR=/tmp
 
 # uncomment to set it to something else
-export PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR="${PLEX_HOME}/Library/Application Support"
+export PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR="${PLEX_METADATA}/Library/Application Support"
 
 # the user that PMS should run as, defaults to 'plex'
 # note that if you change this you might need to move

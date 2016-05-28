@@ -14,10 +14,14 @@ Usage of $(basename "$0"):
                             Default: /var/run/uflix
     -p, --ssh-port      The SSH port to expose from the container
                             Default: 2200
-    -d, --data          REQUIRED: Device to use as storage can be any of:
+    -m, --metadata      REQUIRED: Storage for Plex metadata, can be any of:
                             UUID, PARTUUID, sdXY, Label, PartLabel, ID,
                             any device file, any normal directory,
-    -L, --label         What to call the media when its mounted on the host,
+    -d, --data          Storage for the server's media, can be any of:
+                            UUID, PARTUUID, sdXY, Label, PartLabel, ID,
+                            any device file, any normal directory,
+                            Name multiple data stores with multiple uses of -d
+    -L, --label         Directory name of media when its mounted on the host,
                             can be: label, uuid, name
                             Default: name
     "
@@ -40,7 +44,8 @@ info() {
     echo "[INFO] ${@}"
 }
 
-PLEX_DEVICE=
+PLEX_METADATA=
+PLEX_STORAGE=()
 SSH_PORT=2200
 HOSTNAME="plex-uflix"
 MOUNT_HOME="/var/run/uflix"
@@ -48,6 +53,7 @@ MOUNT_NAME_COMM="name"
 
 # Argument parsing
 VAR_CHANGE=
+ALLOW_MULTIPLE=
 for ARG in "$@"; do
     case "$ARG" in
         "-h"|"--help")
@@ -65,12 +71,21 @@ for ARG in "$@"; do
         "-L"|"--label")
             VAR_CHANGE="MOUNT_NAME_COMM"
             ;;
+        "-m"|"--metadata")
+            VAR_CHANGE="PLEX_METADATA"
+            ;;
         "-d"|"--data")
-            VAR_CHANGE="PLEX_DEVICE"
+            VAR_CHANGE="PLEX_STORAGE"
+            ALLOW_MULTIPLE=true
             ;;
         *)
             if [[ ${VAR_CHANGE:-} ]]; then
-                eval "$VAR_CHANGE='$ARG'"
+                if [[ ${ALLOW_MULTIPLE:-} ]]; then
+                    eval "$VAR_CHANGE+=('$ARG')"
+                    ALLOW_MULTIPLE=
+                else
+                    eval "$VAR_CHANGE='$ARG'"
+                fi
                 VAR_CHANGE=
             else
                 error "Could not understand argument '$ARG'."
@@ -81,9 +96,9 @@ done
 
 # Arguments testing
 
-if [[ ! ${PLEX_DEVICE:-} ]]; then
-    error "You must specify at least one device for plex to use."
-    echo "Specify this with the -d or --device flag."
+if [[ ! ${PLEX_METADATA:-} ]]; then
+    error "You must specify at least one storage area for plex's metadata."
+    echo "Specify this with the -m or --metadata flag."
     echo "Use the -h or --help flag for more options."
     exit 64
 fi
@@ -105,11 +120,11 @@ if [[ $(id -u) != 0 ]]; then
     exit 64
 fi
 
-mkdir -p "$MOUNT_HOME"
 if [[ -d $MOUNT_HOME ]]; then
     CLEANUP=("warn not removing '$MOUNT_HOME'")
 else
-    CLEANUP=("rmdir '$MOUNT_HOME' || true")
+    mkdir -p "$MOUNT_HOME"
+    CLEANUP=("rmdir '$MOUNT_HOME'")
 fi
 
 cleanup() {
@@ -118,7 +133,7 @@ cleanup() {
     for ((i=${#CLEANUP[@]}-1; i >= 0; i--)); do
         local JOB="${CLEANUP[$i]}"
         info "Running $JOB..."
-        eval "$JOB"
+        eval "$JOB" || true
     done
 }
 
@@ -140,7 +155,13 @@ redir_umount() {
 label() {
     local DEVICE="$1"
     if [[ -b $DEVICE ]]; then
-        lsblk -o $MOUNT_NAME_COMM -n "$DEVICE"
+        local LABEL=$(lsblk -o $MOUNT_NAME_COMM -n "$DEVICE")
+        if [[ $LABEL ]]; then
+            echo $LABEL
+        else
+            error "Could not find $MOUNT_NAME_COMM for $DEVICE"
+            exit 64
+        fi
     else
         basename "$DEVICE"
     fi
@@ -153,7 +174,12 @@ mount_it() {
     local LABEL=$(label "$TARGET")
     local DIRECTORY=$(readlink -f "$MOUNT_HOME/$LABEL")
 
-    if [[ $DIRECTORY != $TARGET ]]; then
+    if [[ $DIRECTORY = $TARGET ]]; then
+        warn "'$TARGET' and '$DIRECTORY' are equal, not mounting."
+    elif [[ -d $DIRECTORY ]]; then
+        error "Cannot mount '$TARGET' to an existing directory '$DIRECTORY'."
+        exit 64
+    else
         # create a directory for mounting
         mkdir -p "$DIRECTORY"
         CLEANUP+=("rmdir '$DIRECTORY'")
@@ -161,8 +187,6 @@ mount_it() {
         # mount the device
         mount_$COMMAND "$TARGET" "$DIRECTORY"
         CLEANUP+=("cleanup_$COMMAND '$TARGET' '$DIRECTORY'")
-    else
-        warn "'$TARGET' and '$DIRECTORY' are equal, not mounting."
     fi
 
     # return the mountpoint
@@ -174,7 +198,7 @@ mount_directory() {
 }
 
 cleanup_directory() {
-    $umount "$2" || true
+    $umount "$2"
 }
 
 mount_extfour()  {
@@ -182,7 +206,7 @@ mount_extfour()  {
 }
 
 cleanup_extfour() {
-    $umount "$2" || true
+    $umount "$2"
 }
 
 mount_luks() {
@@ -196,6 +220,7 @@ mount_luks() {
     modprobe dm-mod
 
     # Open the encrypted drive
+    echo -n '[LUKS] '
     cryptsetup open --type luks $LUKS_DEV $MAPPED_DEV
     $mount $MAPPED_DEV_PATH $MOUNT_POINT
 }
@@ -240,8 +265,9 @@ multimount() {
     # it could be some block device file
     info "Trying to find $TARGET..."
     local DEVICE=$(find_dev "$TARGET")
-    info "Found $DEVICE !"
+
     if [[ $DEVICE ]]; then
+        info "Found $DEVICE !"
 
         # is this device already mounted?
         local MOUNTED=($(cat /proc/mounts | grep ^$DEVICE || true))
@@ -274,7 +300,24 @@ multimount() {
     exit 64
 }
 
-multimount PLEX_MOUNT "$PLEX_DEVICE"
+host_to_plex() {
+    echo "/plex/$(basename "$1")"
+}
+
+# mount the metadata and pass its location to docker
+multimount HOST_META "$PLEX_METADATA"
+PLEX_META="$(host_to_plex "$HOST_META")"
+VOLUMES=('-v' "$HOST_META:$PLEX_META")
+
+if [[ ${PLEX_STORAGE:-} ]]; then
+    # mount the other devices
+    for VOL in "${PLEX_STORAGE[@]}"; do
+        # find and mount the volume
+        multimount HOST_MOUNT "$VOL"
+        # add to volumes flag
+        VOLUMES+=('-v' "$HOST_MOUNT:$(host_to_plex "$HOST_MOUNT")")
+    done
+fi
 
 echo -e "\e[0;32m
 ======================
@@ -283,9 +326,10 @@ echo -e "\e[0;32m
 
 docker run \
     --rm \
+    --env "PLEX_METADATA='$PLEX_META'" \
+       "${VOLUMES[@]}" \
     -h "$HOSTNAME" \
     -p $SSH_PORT:22 \
-    -v "$PLEX_MOUNT":"$PLEX_HOME" \
     -p 32400:32400 \
     -p 32400:32400/udp \
     -p 32469:32469 \
