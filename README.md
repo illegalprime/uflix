@@ -45,5 +45,26 @@ sudo systemctl start docker
 git clone https://github.com/illegalprime/uflix.git
 cd uflix
 sudo ./build
-sudo ./start <UUID, Label, PartLabel, path to device, any directory, sdXY, PARTUUID, or ID>
+sudo ./start --help
 ```
+
+# Road Map
+
+1. ~~Basic Plex Server~~
+2. ~~Avahi integration~~
+3. ~~SSH Access~~
+4. ~~Support ext4 fs~~
+5. ~~Support luks fs~~
+6. ~~Gracefully exit on error~~
+7. ~~Identify device file by UUID, etc.~~
+8. ~~Mounting normal directories~~
+9. ~~Add command line configuration options~~
+10. ~~Be able to configure mount point names~~
+11. ~~Better logging~~
+12. Support Multiple Disk Mounting
+13. Support ZFS
+14. Move password entry out of Dockerfile
+15. Support FAT32
+15. Support NTFS
+16. Explicity name mount points
+17. Configuration file
