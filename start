@@ -154,6 +154,16 @@ redir_umount() {
 
 label() {
     local DEVICE="$1"
+
+    # If this is a mounted device, use its label
+    if [[ -d $DEVICE && $MOUNT_NAME_COMM != 'name' ]]; then
+        local DIR=$(readlink -f "$DEVICE")
+        local MOUNTED=($(cat /proc/mounts | grep "$DIR" | head -1 || true))
+        if [[ ${MOUNTED:-} ]]; then
+            DEVICE="${MOUNTED[0]}"
+        fi
+    fi
+
     if [[ -b $DEVICE ]]; then
         local LABEL=$(lsblk -o $MOUNT_NAME_COMM -n "$DEVICE")
         if [[ $LABEL ]]; then
