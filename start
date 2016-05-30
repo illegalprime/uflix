@@ -221,7 +221,7 @@ cleanup_extfour() {
 
 mount_luks() {
     local LUKS_DEV="$1"
-    local MOUNT_POINT="$2"
+    local OUTPUT="$2"
     local MAPPED_DEV="uflix-$(basename $1)"
     local MAPPED_DEV_PATH="/dev/mapper/$MAPPED_DEV"
 
@@ -232,14 +232,14 @@ mount_luks() {
     # Open the encrypted drive
     echo -n '[LUKS] '
     cryptsetup open --type luks $LUKS_DEV $MAPPED_DEV
-    $mount $MAPPED_DEV_PATH $MOUNT_POINT
+    CLEANUP+=("cleanup_luks '$MAPPED_DEV'")
+
+    # Mount it as an ext4 device
+    mount_it extfour "$OUTPUT" "$MAPPED_DEV_PATH"
 }
 
 cleanup_luks() {
-    local MAPPED_DEV="uflix-$(basename $1)"
-    local MOUNT_POINT="$2"
-    $umount "$MOUNT_POINT" || true
-    cryptsetup remove "$MAPPED_DEV" || true
+    cryptsetup remove "$1"
 }
 
 find_dev() {
@@ -296,7 +296,7 @@ multimount() {
                 return
                 ;;
             "crypto_LUKS")
-                mount_it luks "$OUTPUT" "$DEVICE"
+                mount_luks "$DEVICE" "$OUTPUT"
                 return
                 ;;
             *)
