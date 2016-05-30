@@ -4,6 +4,9 @@
 # the number of plugins that can run at the same time
 export PLEX_MEDIA_SERVER_MAX_PLUGIN_PROCS=6
 
+# the location where plex is installed
+export PLEX_MEDIA_SERVER_HOME=/usr/lib/plexmediaserver
+
 # ulimit -s $PLEX_MEDIA_SERVER_MAX_STACK_SIZE
 export PLEX_MEDIA_SERVER_MAX_STACK_SIZE=3000
 
