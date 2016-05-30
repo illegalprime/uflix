@@ -9,24 +9,20 @@ if [[ ! $(ps -A | grep avahi-daemon) ]]; then
     exit 1
 fi
 
-cd /usr/lib/plexmediaserver
 source /etc/environment
 source /etc/default/plexmediaserver
 
 export LD_LIBRARY_PATH="${PLEX_MEDIA_SERVER_HOME}"
 export TMPDIR="${PLEX_MEDIA_SERVER_TMPDIR}"
 
-ulimit -s "$PLEX_MEDIA_SERVER_MAX_STACK_SIZE"
-
 mkdir -p "${PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR}"
-chown ${PLEX_MEDIA_SERVER_USER}:${PLEX_MEDIA_SERVER_USER} -R \
-     "${PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR}"
 
 echo "Starting Plex Media Server..."
 echo "Plugin Threads: $PLEX_MEDIA_SERVER_MAX_PLUGIN_PROCS"
 echo "Max Stack Size: $PLEX_MEDIA_SERVER_MAX_STACK_SIZE"
 echo "Metadata Directory: $PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR"
+cd "$PLEX_MEDIA_SERVER_HOME"
 
 exec 2>&1
-exec chpst -u $PLEX_MEDIA_SERVER_USER ./Plex\ Media\ Server
+exec ./Plex\ Media\ Server
 
