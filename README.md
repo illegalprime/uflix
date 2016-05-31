@@ -61,7 +61,7 @@ sudo ./start --help
 9. ~~Add command line configuration options~~
 10. ~~Be able to configure mount point names~~
 11. ~~Better logging~~
-12. Support Multiple Disk Mounting
+12. ~~Support Multiple Disk Mounting~~
 13. Support ZFS
 14. Move password entry out of Dockerfile
 15. Support FAT32
