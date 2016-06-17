@@ -4,6 +4,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 
 IS_INTEGER='^[0-9]+$'
 VALID_MOUNT_COMM='^(uuid|label|name)$'
+CONTAINER_NAME='uflix-main'
 
 show_help() {
     echo "
@@ -329,6 +330,11 @@ if [[ ${PLEX_STORAGE:-} ]]; then
     done
 fi
 
+if [[ $(docker ps --format='{{.Names}}') =~ $CONTAINER_NAME ]]; then
+    info "Removing old container..."
+    docker rm "$CONTAINER_NAME" >/dev/null
+fi
+
 echo -e "\e[0;32m
 ======================
 | Starting Container |
@@ -336,6 +342,7 @@ echo -e "\e[0;32m
 
 docker run \
     --rm \
+    --name="$CONTAINER_NAME" \
     --env "PLEX_METADATA='$PLEX_META'" \
        "${VOLUMES[@]}" \
     -h "$HOSTNAME" \

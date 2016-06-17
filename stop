@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CONTAINER_NAME='uflix-main'
+
+docker kill --signal='SIGTERM' "$CONTAINER_NAME" >/dev/null
+
