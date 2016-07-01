@@ -5,6 +5,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")"
 IS_INTEGER='^[0-9]+$'
 VALID_MOUNT_COMM='^(uuid|label|name)$'
 CONTAINER_NAME='uflix-main'
+LOCK_FILE='/var/run/uflix.lock'
 
 show_help() {
     echo "
@@ -315,6 +316,20 @@ host_to_plex() {
     echo "/plex/$(basename "$1")"
 }
 
+# check if we're already running
+if [[ -f $LOCK_FILE ]]; then
+    OLD_PID=$(cat "$LOCK_FILE")
+    if $(kill -s 0 $OLD_PID); then
+        warn "Lock file exists, is the program already running?"
+        info "If not, try  removing '$LOCK_FILE'."
+        exit 1
+    fi
+fi
+
+# create the lockfile with the intention to cleanup
+echo $$ > "$LOCK_FILE"
+CLEANUP+=("rm -f '$LOCK_FILE'")
+
 # mount the metadata and pass its location to docker
 multimount HOST_META "$PLEX_METADATA"
 PLEX_META="$(host_to_plex "$HOST_META")"
@@ -328,11 +343,6 @@ if [[ ${PLEX_STORAGE:-} ]]; then
         # add to volumes flag
         VOLUMES+=('-v' "$HOST_MOUNT:$(host_to_plex "$HOST_MOUNT")")
     done
-fi
-
-if [[ $(docker ps --format='{{.Names}}') =~ $CONTAINER_NAME ]]; then
-    info "Removing old container..."
-    docker rm "$CONTAINER_NAME" >/dev/null
 fi
 
 echo -e "\e[0;32m
@@ -354,3 +364,4 @@ docker run \
     -p 5353:5353/udp \
     -p 1900:1900/udp \
     uflix/main
+

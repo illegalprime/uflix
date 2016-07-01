@@ -2,6 +2,30 @@
 set -euo pipefail
 
 CONTAINER_NAME='uflix-main'
+LOCK_FILE='/var/run/uflix.lock'
 
+if [[ $(id -u) != 0 ]]; then
+    echo "Please run this as a root user"
+    exit 64
+fi
+
+# Kill the container
+echo -n "Killing uflix container.."
 docker kill --signal='SIGTERM' "$CONTAINER_NAME" >/dev/null
+
+# wait until the container stops
+while [[ $(docker ps --format='{{.Names}}') =~ $CONTAINER_NAME ]]; do
+    echo -n "."
+    sleep 1
+done
+echo
+
+# wait until the script stops
+echo -n "Waiting for start script to finish.."
+PID=$(cat "$LOCK_FILE")
+while $(kill -s 0 $PID 2>/dev/null); do
+    echo -n "."
+    sleep 1;
+done
+echo
 
