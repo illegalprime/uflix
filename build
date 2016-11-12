@@ -2,9 +2,77 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
+show_help() {
+    echo "
+Usage of $(basename "$0"):
+    -u, --uri           Use this URI as the location of the plex package
+                            Default: use the latest public version
+    -h, --help          Show this help screen
+    "
+    if [[ ${1:-} ]]; then
+	exit 0
+    else
+	exit 64
+    fi
+}
+
+warn() {
+    echo -e "\e[0;33m[WARNING] ${@}\e[0m" 1>&2
+}
+
+error() {
+    echo -e "\e[0;31m[ERROR] ${@}\e[0m" 1>&2
+}
+
+info() {
+    echo "[INFO] ${@}"
+}
+
+PKG_URI="https://plex.tv/downloads/latest/1?channel=8&build=linux-ubuntu-x86_64&distro=ubuntu"
+PLEX_DEB_PATH="tmp-plex-$$.deb"
+
+# Argument parsing
+VAR_CHANGE=
+for ARG in "$@"; do
+    case "$ARG" in
+        "-h"|"--help")
+            show_help clean_exit
+            ;;
+        "-u"|"--uri")
+            VAR_CHANGE="PKG_URI"
+            ;;
+        *)
+            if [[ ${VAR_CHANGE:-} ]]; then
+		eval "$VAR_CHANGE='$ARG'"
+                VAR_CHANGE=
+            else
+                error "Could not understand argument '$ARG'."
+                show_help
+            fi
+    esac
+done
+
+# check for root
 if [[ $(id -u) != 0 ]]; then
     >&2 echo "Please run this script as a root user"
     exit 2
+fi
+
+# cleanup stuff
+cleanup() {
+    echo
+    info "Cleaning up..."
+    rm -f "$PLEX_DEB_PATH"
+}
+trap cleanup TERM EXIT
+
+# download plex
+if [[ -f "$PKG_URI" ]]; then
+    # its a file, just copy
+    cp "$PKG_URI" "$PLEX_DEB_PATH"
+else
+    # its a url maybe? try to fetch it
+    wget "$PKG_URI" -O "$PLEX_DEB_PATH"
 fi
 
 # get a password for the image for root ssh access
@@ -21,4 +89,5 @@ fi
 docker build -t uflix/main \
     --build-arg "password=$PASSWORD" \
     --build-arg "plex_home=/plex" \
+    --build-arg "pkg_path=$PLEX_DEB_PATH" \
     .

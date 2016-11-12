@@ -16,10 +16,12 @@ RUN apt-get update && \
         avahi-daemon \
         runit
 
+# Download plex
+ARG pkg_path
+COPY "$pkg_path" /tmp/plexmediaserver.deb
+
 # Install Plex
-RUN wget "https://plex.tv/downloads/latest/1?channel=8&build=linux-ubuntu-x86_64&distro=ubuntu" \
-    -q -O /tmp/plexmediaserver.deb && \
-    ln -s /bin/true /usr/sbin/start && \
+RUN ln -s /bin/true /usr/sbin/start && \
     dpkg -i /tmp/plexmediaserver.deb && \
     rm -f /tmp/plexmediaserver.deb
 
@@ -41,9 +43,9 @@ RUN rm -rf /etc/service/getty*
 
 # get a wrapper for runit, see:
 # https://peter.bourgon.org/blog/2015/09/24/docker-runit-and-graceful-termination.html
-RUN wget "https://github.com/peterbourgon/runsvinit/releases/download/v2.0.0/runsvinit-linux-amd64.tgz" \
-    -q -O /tmp/runsvinit.tar.gz && \
-    tar -C /tmp -xf /tmp/runsvinit.tar.gz && \
+ADD "https://github.com/peterbourgon/runsvinit/releases/download/v2.0.0/runsvinit-linux-amd64.tgz" \
+    /tmp/runsvinit.tar.gz
+RUN tar -C /tmp -xf /tmp/runsvinit.tar.gz && \
     cp /tmp/runsvinit /usr/sbin/runsvinit && \
     chmod 755 /usr/sbin/runsvinit && \
     rm -rf /tmp/runsvinit

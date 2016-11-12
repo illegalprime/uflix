@@ -26,6 +26,7 @@ Usage of $(basename "$0"):
     -L, --label         Directory name of media when its mounted on the host,
                             can be: label, uuid, name
                             Default: name
+    -h, --help          Show this help screen
     "
     if [[ ${1:-} ]]; then
         exit 64
