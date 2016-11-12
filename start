@@ -364,5 +364,5 @@ docker run \
     -p 32469:32469/udp \
     -p 5353:5353/udp \
     -p 1900:1900/udp \
+    --entrypoint '/usr/sbin/init' \
     uflix/main
-

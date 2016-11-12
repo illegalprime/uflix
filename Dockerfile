@@ -2,8 +2,6 @@
 FROM debian:jessie
 MAINTAINER Michael Eden <themichaeleden@gmail.com>
 
-ARG password
-
 # runit depends on /etc/inittab which is not present in debian:jessie
 RUN touch /etc/inittab
 
@@ -50,8 +48,6 @@ RUN tar -C /tmp -xf /tmp/runsvinit.tar.gz && \
     chmod 755 /usr/sbin/runsvinit && \
     rm -rf /tmp/runsvinit
 
-RUN echo "root:$password" | chpasswd
-
 ARG plex_home
 RUN mkdir -p "${plex_home}"
 
@@ -61,5 +57,3 @@ EXPOSE 22 32400 32400/udp 32469 32469/udp 5353/udp 1900/udp
 
 COPY init /usr/sbin/init
 RUN chmod 755 /usr/sbin/init
-ENTRYPOINT ["/usr/sbin/init"]
-

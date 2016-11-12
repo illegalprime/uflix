@@ -2,11 +2,14 @@
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
+CONTAINER_TAG="uflix/main"
+
 show_help() {
     echo "
 Usage of $(basename "$0"):
     -u, --uri           Use this URI as the location of the plex package
                             Default: use the latest public version
+    -s, --edit-pass     Only change the SSH password
     -h, --help          Show this help screen
     "
     if [[ ${1:-} ]]; then
@@ -28,6 +31,15 @@ info() {
     echo "[INFO] ${@}"
 }
 
+set_pass() {
+    # set a password
+    docker run -it --entrypoint /usr/bin/passwd $CONTAINER_TAG
+
+    # save the changes to the container
+    ID=$(docker ps -a | grep "$CONTAINER_TAG.*passwd" | head -1 | cut -d' ' -f 1)
+    docker commit "$ID" "$CONTAINER_TAG"
+}
+
 PKG_URI="https://plex.tv/downloads/latest/1?channel=8&build=linux-ubuntu-x86_64&distro=ubuntu"
 PLEX_DEB_PATH="tmp-plex-$$.deb"
 
@@ -40,6 +52,10 @@ for ARG in "$@"; do
             ;;
         "-u"|"--uri")
             VAR_CHANGE="PKG_URI"
+            ;;
+        "-s"|"--edit-pass")
+            set_pass
+            exit 0
             ;;
         *)
             if [[ ${VAR_CHANGE:-} ]]; then
@@ -75,19 +91,10 @@ else
     wget "$PKG_URI" -O "$PLEX_DEB_PATH"
 fi
 
-# get a password for the image for root ssh access
-echo -n "Password (for SSH access): "; read -s PASSWORD
-echo
-echo -n "One more time: "; read -s verify_pass
-echo
-
-if [[ $PASSWORD != $verify_pass ]]; then
-    >&2 echo "Passwords do not match."
-    exit 3
-fi
-
-docker build -t uflix/main \
-    --build-arg "password=$PASSWORD" \
+# build container
+docker build -t $CONTAINER_TAG \
     --build-arg "plex_home=/plex" \
     --build-arg "pkg_path=$PLEX_DEB_PATH" \
     .
+
+set_pass
